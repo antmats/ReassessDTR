@@ -41,7 +41,7 @@ def clone_stopped_sweep(project_name, new_sweep_id, stopped_sweep_id, debug=True
         if new_sweep_id is None:
             new_sweep_id = wandb.sweep(new_sweep_config, project=project_name)
 
-        wandb.agent(sweep_id=new_sweep_id, function=clone_run, project=project_name, entity="gilesluo")
+        wandb.agent(sweep_id=new_sweep_id, function=clone_run, project=project_name)
 
 
 # Example usage

@@ -1,4 +1,5 @@
 import os
+from copy import copy
 import torch
 from tianshou.policy.base import BasePolicy
 from HD4RL.core.logger import OfflineWandbLogger
@@ -54,7 +55,8 @@ class RLObjective:
 
     def search_once(self, hparams: dict=None, metric="best_reward", log_name=None):
         if self.logger == "wandb":
-            self.logger = OfflineWandbLogger(project="SepsisRL",
+            project = os.environ.get("WANDB_PROJECT", "SepsisRL")
+            self.logger = OfflineWandbLogger(project=project,
                                              name=f"{self.env_name}-{self.hparam_space.algo_name}",
                                              save_interval=1,
                                              config=self.hparam_space.get_meta_params(),
@@ -83,6 +85,12 @@ class RLObjective:
 
         result = self.run(self.policy, **hparams)
         score = result[metric.replace("test/", "")]
+
+        for k, v in copy(result).items():
+            if k.startswith("proba"):
+                with open(os.path.join(self.log_path, f"{k}.json"), "w") as f:
+                    json.dump(v, f)
+                del result[k]
 
         self.logger.log_test_data(result, step=0)
         history = self.logger.download_history()

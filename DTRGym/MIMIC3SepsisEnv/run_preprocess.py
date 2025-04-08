@@ -1,3 +1,4 @@
+import json
 from preprocess_util import ActionTransformer, \
     get_reward, get_obs, split_patient_by_stratified_patients, save_to_buffer, matchID, get_data_from_patient_list, \
     save_data, check_step, check_ID, preprocess_obs
@@ -63,6 +64,7 @@ if __name__ == "__main__":
     parser.add_argument("--debug_mode", type=bool, default=False)
     parser.add_argument("--gamma", type=float, default=0.99)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--use_predefined_splits", action="store_true")
     parser.add_argument("--data_splits", default=[0.7, 0.15, 0.15], nargs='+', type=float)
     parser.add_argument("--norm_obs", default=True, type=bool)
     parser.add_argument("--max_len", default=18, type=int)
@@ -203,39 +205,52 @@ if __name__ == "__main__":
     reward['Q'] = reward.groupby(level='icustay_id')['r_sum'].transform(reverse_cumulative_sum_with_discount) \
         if not args.debug_mode else np.nan
 
-    #  split by stratified patient groups
-    patient_groups = visu_data.plot_NEWS2_by_value(sepsis_df, plot_dir, values=[-0.4, -0.15, 0, 0.15, 0.4],
-                                                   method="rate", split_by_std=True)
     train_indices, val_indices, test_indices = {}, {}, {}
 
-    outcome_df = sepsis_df["outcome"].groupby("icustay_id").head(1).reset_index()
-    outcome_df.drop(columns=["step"], inplace=True)
-    outcome_df.set_index("icustay_id", inplace=True)
+    if args.use_predefined_splits:
+        split_file_path = os.path.join(data_dir, f"split_{args.seed}.json")
+        if not os.path.exists(split_file_path):
+            raise ValueError(f"Predefined splits not found for seed {args.seed}.")
+        with open(split_file_path, "r") as f:
+            splits = json.load(f)
+        all_train_indices = splits["train"]
+        all_val_indices = splits["valid"]
+        all_test_indices = splits["test"]
+        ope_train_indices = np.concatenate([all_train_indices, all_test_indices])
 
-    for group_name, indices in patient_groups.items():
-        print(f"patients in group {group_name}: {len(indices)}")
-        dataset_df = sepsis_df[sepsis_df.index.get_level_values("icustay_id").isin(indices)]
-        dataset_outcome_df = outcome_df[outcome_df.index.isin(indices)]
-        alive = dataset_outcome_df[dataset_outcome_df == 0].index
-        dead = dataset_outcome_df[dataset_outcome_df == 1].index
-        train1, tmp1 = train_test_split(alive, test_size=sum(args.data_splits[-2:]), random_state=args.seed)
-        val1, test1 = train_test_split(tmp1, test_size=args.data_splits[-1] / sum(args.data_splits[-2:]),
-                                       random_state=args.seed)
+    else:
+        #  split by stratified patient groups
+        patient_groups = visu_data.plot_NEWS2_by_value(sepsis_df, plot_dir, values=[-0.4, -0.15, 0, 0.15, 0.4],
+                                                    method="rate", split_by_std=True)
 
-        train2, tmp2 = train_test_split(dead, test_size=sum(args.data_splits[-2:]), random_state=args.seed)
-        val2, test2 = train_test_split(tmp2, test_size=args.data_splits[-1] / sum(args.data_splits[-2:]),
-                                       random_state=args.seed)
+        outcome_df = sepsis_df["outcome"].groupby("icustay_id").head(1).reset_index()
+        outcome_df.drop(columns=["step"], inplace=True)
+        outcome_df.set_index("icustay_id", inplace=True)
 
-        train_indices[group_name] = np.concatenate([train1, train2])
-        val_indices[group_name] = np.concatenate([val1, val2])
-        test_indices[group_name] = np.concatenate([test1, test2])
+        for group_name, indices in patient_groups.items():
+            print(f"patients in group {group_name}: {len(indices)}")
+            dataset_df = sepsis_df[sepsis_df.index.get_level_values("icustay_id").isin(indices)]
+            dataset_outcome_df = outcome_df[outcome_df.index.isin(indices)]
+            alive = dataset_outcome_df[dataset_outcome_df == 0].index
+            dead = dataset_outcome_df[dataset_outcome_df == 1].index
+            train1, tmp1 = train_test_split(alive, test_size=sum(args.data_splits[-2:]), random_state=args.seed)
+            val1, test1 = train_test_split(tmp1, test_size=args.data_splits[-1] / sum(args.data_splits[-2:]),
+                                        random_state=args.seed)
 
-    # save all data
-    all_train_indices = np.concatenate([train_indices[group_name] for group_name in train_indices.keys()])
-    all_val_indices = np.concatenate([val_indices[group_name] for group_name in val_indices.keys()])
-    all_test_indices = np.concatenate([test_indices[group_name] for group_name in test_indices.keys()])
-    # for OPE, testing set must be included as training set. Val set is used for validation.
-    ope_train_indices = np.concatenate([all_train_indices, all_test_indices])
+            train2, tmp2 = train_test_split(dead, test_size=sum(args.data_splits[-2:]), random_state=args.seed)
+            val2, test2 = train_test_split(tmp2, test_size=args.data_splits[-1] / sum(args.data_splits[-2:]),
+                                        random_state=args.seed)
+
+            train_indices[group_name] = np.concatenate([train1, train2])
+            val_indices[group_name] = np.concatenate([val1, val2])
+            test_indices[group_name] = np.concatenate([test1, test2])
+
+        # save all data
+        all_train_indices = np.concatenate([train_indices[group_name] for group_name in train_indices.keys()])
+        all_val_indices = np.concatenate([val_indices[group_name] for group_name in val_indices.keys()])
+        all_test_indices = np.concatenate([test_indices[group_name] for group_name in test_indices.keys()])
+        # for OPE, testing set must be included as training set. Val set is used for validation.
+        ope_train_indices = np.concatenate([all_train_indices, all_test_indices])
 
     train_statics, train_obs, _, _ = get_data_from_patient_list(list(all_train_indices), statics_df, obs, a, reward)
 
