@@ -10,11 +10,13 @@ project="mlhc2025"  # wandb project name
 reward_setting="Outcome"
 max_seq_len=6
 
+num_runs=10
+
 bc_algo="discrete-imitation-rnn"
-bc_num_epochs=100
+bc_num_epochs=50
 bc_metric="PatientWiseF1"
 
-rl_algos=("dqn-obs_cat" "discrete-bcq-obs_cat")
+rl_algos=("dqn-obs_cat" "discrete-bcq-obs_cat" "discrete-cql-obs_cat")
 rl_num_epochs=50
 rl_metric="WIS_truncated"
 
@@ -46,6 +48,12 @@ seed=$((SLURM_ARRAY_TASK_ID - 1))
 trial=$(printf "%03d" "$SLURM_ARRAY_TASK_ID")
 
 # Prepare data.
+rapomo_env="/mimer/NOBACKUP/groups/inpole/rapomo/rapomo_env.sif"
+num_seeds=$(find "$experiment_dir" -maxdepth 1 -type d -name 'trial_*' | wc -l)
+apptainer exec --bind "${HOME}/rapomo:/mnt/rapomo" "$rapomo_env" python "${HOME}/rapomo/scripts/save_split_indices_to_file.py" \
+    --config_path "${experiment_dir}/default_config.yml" \
+    --output_path ./DTRGym/MIMIC3SepsisEnv \
+    --num_seeds "$num_seeds"
 apptainer exec $bind --nv env.sif python ./DTRGym/MIMIC3SepsisEnv/run_preprocess.py \
     --seed "$seed" \
     --reward_option "$reward_setting" \
@@ -69,6 +77,7 @@ bc_sweep_id=$(apptainer exec $bind --nv env.sif python ./experiment/run_sepsis.p
     --OPE_methods "$bc_metric" \
     --OPE_metric "$bc_metric" \
     --logdir "${PWD}" \
+    --n_runs "$num_runs" \
     --project "$project" | tail -n 1)
 echo "Behavior policy model training completed."
 
@@ -81,6 +90,7 @@ if [ -z "$results_dir" ]; then
 fi
 
 echo "Copying results..."
+./cleanup_checkpoints.sh "$results_dir"
 rsync -r "$results_dir" "${experiment_dir}/trial_${trial}"
 
 best_score=-1
@@ -136,12 +146,14 @@ for rl_algo in "${rl_algos[@]}"; do
         --behavioural_model_path "${best_trial_dir}/policy.pth" \
         --OPE_methods "$rl_metric" \
         --OPE_metric "$rl_metric" \
+        --n_runs "$num_runs" \
         --logdir "${PWD}"
         #--calibrate_behavioural \
         #--calibrated_model_path "${best_trial_dir}/calibrated_model.pt"
-done
 
-echo "Copying results..."
-rsync -r "$results_dir" "${experiment_dir}/trial_${trial}"
+    echo "Copying results..."
+    ./cleanup_checkpoints.sh "$results_dir"
+    rsync -r "$results_dir" "${experiment_dir}/trial_${trial}"
+done
 
 echo "Experiment completed successfully."

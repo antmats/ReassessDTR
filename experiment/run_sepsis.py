@@ -135,7 +135,7 @@ if __name__ == "__main__":
                         help="sweep is to experiment a sweep controller on the w&b server."
                              "agent is to experiment a single experiment controlled by a created sweep."
                              "run_single is to experiment a single experiment without sweep.")
-
+    parser.add_argument("--n_runs", type=int, default=10)
     parser.add_argument("--sweep_id", type=str, default=None)
     parser.add_argument("--mode", type=str, choices=["val-online-test-online",
                                                      "val-offline-test-offline",
@@ -238,13 +238,13 @@ if __name__ == "__main__":
     print("All prepared. Start to experiment using device: {}".format(args.device))
     if args.role == "sweep":
         sweep_configuration = {
-            "method": "grid",
+            "method": "random",
             "name": study_name,
             "metric": {"goal": args.goal, "name": goal_name},
             "parameters": whole_config
         }
         sweep_id = wandb.sweep(sweep_configuration, project=args.project)
-        wandb.agent(sweep_id=sweep_id, function=call_agent, project=args.project)
+        wandb.agent(sweep_id=sweep_id, function=call_agent, count=args.n_runs)
         print(sweep_id)
     else:
         if args.role == "agent":

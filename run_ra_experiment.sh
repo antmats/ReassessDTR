@@ -7,11 +7,13 @@ image="/mimer/NOBACKUP/groups/inpole/rapomo/rl_env.sif"
 
 project="mlhc2025"  # wandb project name
 
+num_runs=10
+
 bc_algo="discrete-imitation"
-bc_num_epochs=100
+bc_num_epochs=50
 bc_metric="PatientWiseF1"
 
-rl_algos=("dqn" "discrete-bcq")
+rl_algos=("dqn" "discrete-bcq" "discrete-cql")
 rl_num_epochs=50
 rl_metric="WIS_truncated"
 
@@ -94,6 +96,7 @@ bc_sweep_id=$(apptainer exec $bind --nv env.sif python ./experiment/run_sepsis.p
     --OPE_methods "$bc_metric" \
     --OPE_metric "$bc_metric" \
     --logdir "${PWD}" \
+    --n_runs "$num_runs" \
     --project "$project" | tail -n 1)
 echo "Behavior policy model training completed."
 
@@ -106,6 +109,7 @@ if [ -z "$results_dir" ]; then
 fi
 
 echo "Copying results..."
+./cleanup_checkpoints.sh "$results_dir"
 rsync -r "$results_dir" "${experiment_dir}/trial_${trial}"
 
 best_score=-1
@@ -161,12 +165,14 @@ for rl_algo in "${rl_algos[@]}"; do
         --behavioural_model_path "${best_trial_dir}/policy.pth" \
         --OPE_methods "$rl_metric" \
         --OPE_metric "$rl_metric" \
+        --n_runs "$num_runs" \
         --logdir "${PWD}"
         #--calibrate_behavioural \
         #--calibrated_model_path "${best_trial_dir}/calibrated_model.pt"
-done
 
-echo "Copying results..."
-rsync -r "$results_dir" "${experiment_dir}/trial_${trial}"
+    echo "Copying results..."
+    ./cleanup_checkpoints.sh "$results_dir"
+    rsync -r "$results_dir" "${experiment_dir}/trial_${trial}"
+done
 
 echo "Experiment completed successfully."
