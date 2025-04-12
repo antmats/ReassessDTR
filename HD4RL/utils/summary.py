@@ -7,28 +7,31 @@ import re
 import numpy as np
 
 
-def get_sweep(project_path, task_name, algo_name):
+def get_sweep(project_path, task_name, algo_name, sweep_id=None):
     wandb.login()
     api = wandb.Api()
-    sweeps = api.project(project_path, entity="gilesluo").sweeps()
-    if len(sweeps) == 0:
-        raise ValueError(f"No sweep found for project {project_path}")
-    sweep_ids = []
-    all_sweep_names = [sweep.config["name"] for sweep in sweeps]
-    for sweep in sweeps:
-        sweep_id = sweep.id
-        if sweep.config["name"].replace(task_name, "") != algo_name:
-            continue
-        sweep_ids.append(sweep_id)
+    if sweep_id is None:
+        sweeps = api.project(project_path).sweeps()
+        if len(sweeps) == 0:
+            raise ValueError(f"No sweep found for project {project_path}")
+        sweep_ids = []
+        all_sweep_names = [sweep.config["name"] for sweep in sweeps]
+        for sweep in sweeps:
+            sweep_id = sweep.id
+            if sweep.config["name"].replace(task_name, "") != algo_name:
+                continue
+            sweep_ids.append(sweep_id)
 
-    if len(sweep_ids) == 0:
-        raise ValueError(f"No sweep found for project {project_path} algorithm {task_name}{algo_name}, \n"
-                         f"all sweeps are {all_sweep_names}")
-    elif len(sweep_ids) > 1:
-        raise ValueError(f"Multiple sweeps found for {algo_name}. Pls check")
+        if len(sweep_ids) == 0:
+            raise ValueError(f"No sweep found for project {project_path} algorithm {task_name}{algo_name}, \n"
+                            f"all sweeps are {all_sweep_names}")
+        elif len(sweep_ids) > 1:
+            raise ValueError(f"Multiple sweeps found for {algo_name}. Pls check")
+        
+        sweep_id = sweep_ids[0]
 
     sweep_data = []
-    runs = api.runs(project_path, {"sweep": sweep_ids[0]})
+    runs = api.runs(project_path, {"sweep": sweep_id})
     for run in runs:
         # Extract the desired data from each experiment
         sweep_data.append(dict(**run.summary, **run.config,

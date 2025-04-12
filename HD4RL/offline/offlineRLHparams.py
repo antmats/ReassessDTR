@@ -60,7 +60,8 @@ class DiscreteImitationHyperParams(OfflineRLHyperParameterSpace):
         "lr": common_hparams["lr"],
         "stack_num": 1,
         "cat_num": 1,
-        "loss_fn": ["cross_entropy", "weighted_cross_entropy"]
+        #"loss_fn": ["cross_entropy", "weighted_cross_entropy"]
+        "loss_fn": ["cross_entropy"]
     }
 
 
@@ -70,7 +71,8 @@ class DiscreteImitationRNNHyperParams(OfflineRLHyperParameterSpace):
         "lr": common_hparams["lr"],
         "stack_num": common_hparams["stack_num"],
         "cat_num": 1,
-        "loss_fn": ["cross_entropy", "weighted_cross_entropy"]
+        #"loss_fn": ["cross_entropy", "weighted_cross_entropy"]
+        "loss_fn": ["cross_entropy"]
     }
 
 
@@ -80,7 +82,8 @@ class DiscreteImitationObsCatHyperParams(OfflineRLHyperParameterSpace):
         "lr": common_hparams["lr"],
         "stack_num": 1,
         "cat_num": common_hparams["cat_num"],
-        "loss_fn": ["cross_entropy", "weighted_cross_entropy"]
+        #"loss_fn": ["cross_entropy", "weighted_cross_entropy"]
+        "loss_fn": ["cross_entropy"]
     }
 
 

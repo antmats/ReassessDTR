@@ -212,6 +212,12 @@ class OfflineRLObjective(RLObjective):
         # test OPE
         if self.test_OPE is not None:
             result.update({f"{k}": v for k, v in self.test_OPE(self.policy).items()})
+            from HD4RL.OPE.ImportanceSampling import ImportanceSampling as ISEstimator
+            is_estimator = next((e for e in self.test_OPE.estimators if isinstance(e, ISEstimator)), None)
+            if is_estimator is not None:
+                proba = is_estimator.compute_target_probs(self.policy)
+                for k, v in proba.items():
+                    result[f"proba-{k}"] = v.tolist()
         return result
 
 

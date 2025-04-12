@@ -5,6 +5,7 @@ from gymnasium.envs.registration import register
 from .MIMIC3SepsisEnv.env import (MIMIC3SepsisEnv, create_MIMIC3SepsisEnv_discrete, create_MIMIC3SepsisSynEnv_discrete,
                                   create_MIMIC3SepsisOutcomeEnv_discrete, create_MIMIC3SepsisNEWS2Env_discrete,
                                   create_MIMIC3SepsisSOFAEnv_discrete)
+from .RAEnv.env import create_RAEnv_discrete
 import os
 import importlib
 from pathlib import Path
@@ -60,7 +61,8 @@ registered_ids = ["AhnChemoEnv-continuous",
                   "MIMIC3SepsisOutcomeEnv-discrete",
                   "MIMIC3SepsisNEWS2Env-discrete",
                   "MIMIC3SepsisSOFAEnv-discrete",
-                  "MIMIC3SepsisSynEnv-discrete"]
+                  "MIMIC3SepsisSynEnv-discrete",
+                  "RAEnv-discrete"]
 
 envs = ["AhnChemoEnv",
         "GhaffariCancerEnv",
@@ -71,6 +73,7 @@ envs = ["AhnChemoEnv",
         "MIMIC3SepsisSOFAEnv",  # offline placeholder
         "MIMIC3SepsisNEWS2Env",  # offline placeholder
         "MIMIC3SepsisEnvSyn",  # GAN based simulation
+        "RAEnv",  # offline placeholder
         ]
 
 for registered_id in registered_ids:

@@ -7,6 +7,7 @@ from HD4RL.utils.summary import get_sweep, get_best_run
 import importlib
 import wandb
 import re
+import time
 import warnings
 from HD4RL.utils.network import CalibratedNet
 from HD4RL.utils.data import TianshouDataset, collate_batch_seq2seq, load_buffer
@@ -15,10 +16,10 @@ from HD4RL.offline.offlineRLHparams import DummyHparam
 warnings.filterwarnings("ignore")
 
 
-def get_behavioural_fn(project, env_name, algo_name, device, behavioural_model_path=None):
+def get_behavioural_fn(project, env_name, algo_name, device, behavioural_model_path=None, sweep_id=None):
     # try:
     behavioural_run = get_sweep(project, f"{env_name}-all_ope_train-",
-                                algo_name)
+                                algo_name, sweep_id=sweep_id)
     behavioural_run = get_best_run(behavioural_run, "val/all_val-PatientWiseF1", maximize=True)
     behavioural_fn = get_class("obj", algo_name, offline=True)(
         env_name + "-discrete",
@@ -70,8 +71,8 @@ def get_value_fn(project, env_name, algo_name, device, value_model_path=None):
 
 
 def load_behavioural_fn(project, env_name, algo_name, device, behavioural_model_path,
-                        calibrate=False, calibrated_model_path=None, val_buffer=None):
-    bc_args = get_behavioural_fn(project, env_name, algo_name, device, behavioural_model_path)
+                        calibrate=False, calibrated_model_path=None, val_buffer=None, sweep_id=None):
+    bc_args = get_behavioural_fn(project, env_name, algo_name, device, behavioural_model_path, sweep_id)
     if not calibrate:
         print("No calibration is performed, return behavioural function directly")
         return bc_args
@@ -134,8 +135,8 @@ if __name__ == "__main__":
                         help="sweep is to experiment a sweep controller on the w&b server."
                              "agent is to experiment a single experiment controlled by a created sweep."
                              "run_single is to experiment a single experiment without sweep.")
-
-    parser.add_argument("--sweep_id", type=str, default="mzdwn9fq")
+    parser.add_argument("--n_runs", type=int, default=10)
+    parser.add_argument("--sweep_id", type=str, default=None)
     parser.add_argument("--mode", type=str, choices=["val-online-test-online",
                                                      "val-offline-test-offline",
                                                      "val-offline-test-online",
@@ -154,14 +155,12 @@ if __name__ == "__main__":
     parser.add_argument('--all_soften', default=False, action='store_true', )
     parser.add_argument('--calibrate_behavioural', default=False, action='store_true', )
     parser.add_argument('--bc_algo', default="discrete-imitation-rnn")
-    parser.add_argument('--behavioural_model_path',
-                        default="/home/reub0014/projects/SimMedEnv/experiment/saved_models/bc_policy.pth", )
-    parser.add_argument('--calibrated_model_path', default="/home/reub0014/projects/"
-                                                           "SimMedEnv/experiment/saved_models/calibrated_model.pt")
+    parser.add_argument('--behavioural_sweep_id', type=str, default=None)
+    parser.add_argument('--behavioural_model_path', default=None)
+    parser.add_argument('--calibrated_model_path', default=None)
 
     parser.add_argument('--value_algo', default="offlinesarsa-rnn")
-    parser.add_argument('--value_model_path',
-                        default="/home/reub0014/projects/SimMedEnv/experiment/saved_models/NEWS2_value_policy.pth")
+    parser.add_argument('--value_model_path', default=None)
     parser.add_argument("--train_buffer", type=str, default="all_train")
     parser.add_argument("--val_buffer", type=str, default="all_val")
     parser.add_argument("--test_buffer_keyword", type=str, default="all_test", help="keyword to find all test buffer")
@@ -224,31 +223,32 @@ if __name__ == "__main__":
     if "IS" in args.OPE_methods or "WIS" in args.OPE_methods or "WIS_bootstrap" in args.OPE_methods or \
             "WIS_truncated" in args.OPE_methods or "WIS_bootstrap_truncated" in args.OPE_methods or \
             "DR" in args.OPE_methods or "WDR" in args.OPE_methods or "PDDR" in args.OPE_methods or "PDWDR" in args.OPE_methods:
-        ope_args["behavioural_fn"] = load_behavioural_fn(args.project, "MIMIC3SepsisNEWS2Env",
+        ope_args["behavioural_fn"] = load_behavioural_fn(args.project, args.env,
                                                          args.bc_algo, args.device,
                                                          behavioural_model_path=args.behavioural_model_path,
                                                          calibrate=args.calibrate_behavioural,
                                                          calibrated_model_path=args.calibrated_model_path,
-                                                         val_buffer=load_buffer(
-                                                             buffer_registry.make(args.env, "all_test")))  # placeholder
+                                                         val_buffer=load_buffer(buffer_registry.make(args.env, "all_test")),
+                                                         sweep_id=args.behavioural_sweep_id)
 
     if "DR" in args.OPE_methods or "WDR" in args.OPE_methods or "PDDR" in args.OPE_methods or "PDWDR" in args.OPE_methods:
         ope_args["value_fn"] = get_value_fn(args.project, args.env, args.value_algo, args.device,
                                             value_model_path=args.value_model_path)
 
-    print("All prepared. Start to experiment")
+    print("All prepared. Start to experiment using device: {}".format(args.device))
     if args.role == "sweep":
         sweep_configuration = {
-            "method": "grid",
+            "method": "random",
             "name": study_name,
             "metric": {"goal": args.goal, "name": goal_name},
             "parameters": whole_config
         }
         sweep_id = wandb.sweep(sweep_configuration, project=args.project)
-        wandb.agent(sweep_id=sweep_id, function=call_agent, project=args.project, entity="gilesluo")
+        wandb.agent(sweep_id=sweep_id, function=call_agent, count=args.n_runs)
+        print(sweep_id)
     else:
         if args.role == "agent":
-            wandb.agent(sweep_id=args.sweep_id, function=call_agent, project=args.project, entity="gilesluo")
+            wandb.agent(sweep_id=args.sweep_id, function=call_agent, project=args.project)
         if args.role == "run_single":
             obj = obj_class(f"{args.env}-{get_class('type', args.algo_name, True)}", hparam_space, device=args.device,
                             logger="wandb",
@@ -265,3 +265,7 @@ if __name__ == "__main__":
         else:
             print("role must be one of [sweep, agent, run_single], get {}".format(args.role))
             raise NotImplementedError
+
+    time.sleep(10)
+    wandb.finish()
+    time.sleep(10)

@@ -44,6 +44,7 @@ DTRGym/*/offline_data/*.pdf
 DTRGym/*/offline_data/plots/
 DTRGym/*/*plots/*.pdf
 DTRGym/*/*plots/*.png
+DTRGym/MIMIC3SepsisEnv/split_*.json
 
 log/online/*
 log/offline/*
@@ -64,5 +65,5 @@ experiment/saved_models/*/
 experiment/results
 experiment/naive_baseline/
 
-
-
+# Mac OS
+.DS_Store

@@ -1,0 +1,30 @@
+Bootstrap: docker
+
+From: continuumio/miniconda3:latest
+
+%post
+    project_name="ReassessDTR"
+
+    # Install software.
+    apt-get update
+    apt-get install -y curl
+    apt-get install -y rsync
+    curl -fsSL https://pixi.sh/install.sh | bash
+
+    # Restart the shell.
+    . ~/.profile
+    . ~/.bashrc
+
+    # Install the project and its dependencies.
+    rsync -r "/mnt/${project_name}" .
+    cd "$project_name"
+    pixi install -e cuda
+
+    # Activate the environment upon running the container.
+    echo "$(pixi shell-hook -e cuda)" >> $SINGULARITY_ENVIRONMENT
+
+%environment
+    if [ -d "/mnt/ReassessDTR" ]
+    then
+        export PYTHONPATH="/mnt/ReassessDTR:/mnt/ReassessDTR/DTRGym:${PYTHONPATH}"
+    fi
