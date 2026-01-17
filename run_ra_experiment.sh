@@ -3,7 +3,8 @@
 #SBATCH -N 1 --gpus-per-node=T4:1
 #SBATCH -t 1-00:00:00
 
-image="/mimer/NOBACKUP/groups/inpole/rapomo/rl_env.sif"
+ReassessDTR_env="/mimer/NOBACKUP/groups/inpole/ppdev/rl_env.sif"
+ppdev_env="/mimer/NOBACKUP/groups/inpole/ppdev/ppdev_env.sif"
 
 project="mlhc2025"  # wandb project name
 
@@ -36,7 +37,7 @@ cd ~
 rsync -r ReassessDTR "$TMPDIR" --exclude="*_env"
 cd "${TMPDIR}/ReassessDTR"
 
-rsync -av "$image" ./env.sif
+rsync -av "$ReassessDTR_env" ./env.sif
 
 bind="--bind ${TMPDIR}/ReassessDTR:/mnt/ReassessDTR"
 
@@ -46,14 +47,13 @@ trial=$(printf "%03d" "$SLURM_ARRAY_TASK_ID")
 
 # Prepare data.
 
-rapomo_env="/mimer/NOBACKUP/groups/inpole/rapomo/rapomo_env.sif"
-apptainer exec --bind "${HOME}/rapomo:/mnt/rapomo" "$rapomo_env" python -c "
+apptainer exec --bind "${HOME}/ppdev:/mnt/ppdev" "$ppdev_env" python -c "
 import os
 import joblib
 import pandas as pd
-from rapomo.utils import load_config
-from rapomo.data import get_data_handler, get_dataset
-from rapomo.data import utils as utils
+from ppdev.utils import load_config
+from ppdev.data import get_data_handler, get_dataset
+from ppdev.data import utils as utils
 
 config_path = os.path.join('$experiment_dir', f'trial_{$SLURM_ARRAY_TASK_ID:03d}', 'config.yml')
 config = load_config(config_path)

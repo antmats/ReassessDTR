@@ -3,7 +3,8 @@
 #SBATCH -N 1 --gpus-per-node=T4:1
 #SBATCH -t 2-00:00:00
 
-image="/mimer/NOBACKUP/groups/inpole/rapomo/rl_env.sif"
+ReassessDTR_env="/mimer/NOBACKUP/groups/inpole/ppdev/rl_env.sif"
+ppdev_env="/mimer/NOBACKUP/groups/inpole/ppdev/ppdev_env.sif"
 
 project="mlhc2025"  # wandb project name
 
@@ -39,7 +40,7 @@ cd ~
 rsync -r ReassessDTR "$TMPDIR" --exclude="*_env"
 cd "${TMPDIR}/ReassessDTR"
 
-rsync -av "$image" ./env.sif
+rsync -av "$ReassessDTR_env" ./env.sif
 
 bind="--bind ${TMPDIR}/ReassessDTR:/mnt/ReassessDTR"
 
@@ -48,9 +49,8 @@ seed=$((SLURM_ARRAY_TASK_ID - 1))
 trial=$(printf "%03d" "$SLURM_ARRAY_TASK_ID")
 
 # Prepare data.
-rapomo_env="/mimer/NOBACKUP/groups/inpole/rapomo/rapomo_env.sif"
 num_seeds=$(find "$experiment_dir" -maxdepth 1 -type d -name 'trial_*' | wc -l)
-apptainer exec --bind "${HOME}/rapomo:/mnt/rapomo" "$rapomo_env" python "${HOME}/rapomo/scripts/save_split_indices_to_file.py" \
+apptainer exec --bind "${HOME}/ppdev:/mnt/ppdev" "$ppdev_env" python "${HOME}/ppdev/scripts/save_split_indices_to_file.py" \
     --config_path "${experiment_dir}/default_config.yml" \
     --output_path ./DTRGym/MIMIC3SepsisEnv \
     --num_seeds "$num_seeds"
