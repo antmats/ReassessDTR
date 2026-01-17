@@ -52,7 +52,7 @@ trial=$(printf "%03d" "$SLURM_ARRAY_TASK_ID")
 num_seeds=$(find "$experiment_dir" -maxdepth 1 -type d -name 'trial_*' | wc -l)
 apptainer exec --bind "${HOME}/ppdev:/mnt/ppdev" "$ppdev_env" python "${HOME}/ppdev/scripts/save_split_indices_to_file.py" \
     --config_path "${experiment_dir}/default_config.yml" \
-    --output_path ./DTRGym/MIMIC3SepsisEnv \
+    --output_dir_path ./DTRGym/MIMIC3SepsisEnv \
     --num_seeds "$num_seeds"
 apptainer exec $bind --nv env.sif python ./DTRGym/MIMIC3SepsisEnv/run_preprocess.py \
     --seed "$seed" \
